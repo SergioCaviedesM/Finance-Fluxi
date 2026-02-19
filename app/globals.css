@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #F7F7F8;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Forzar layout de PC en mobile */
+@media (max-width: 1023px) {
+  main {
+    min-width: 1024px;
+  }
+
+  body {
+    overflow-x: auto;
+  }
+}
