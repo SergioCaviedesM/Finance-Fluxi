@@ -555,3 +555,110 @@ export function getMonthlySubscriberHistory(subscriptions: Subscription[]): Arra
 
   return results;
 }
+
+// === VENTAS ===
+
+/**
+ * Filtra transacciones que son ventas reales (ingresos excluyendo aportes de capital y traslados)
+ */
+export function getSalesTransactions(transactions: Transaction[]): Transaction[] {
+  return transactions.filter(tx =>
+    tx.valorCOP > 0 &&
+    (tx.clasificacion.toUpperCase().trim() === 'VENTAS' || tx.clasificacion.toUpperCase().trim() === 'V')
+  );
+}
+
+/**
+ * Agrupa ventas por mes y calcula totales, conteo, ticket promedio y desglose por categoría
+ */
+export function getMonthlySales(
+  transactions: Transaction[],
+  currency: 'COP' | 'USD' = 'COP'
+): Array<{
+  month: string;
+  monthLabel: string;
+  totalSales: number;
+  transactionCount: number;
+  avgTicket: number;
+  salesByCategory: Record<string, number>;
+}> {
+  const sales = getSalesTransactions(transactions);
+  const valueKey = currency === 'COP' ? 'valorCOP' : 'valorUSD';
+
+  const MESES_ES: Record<string, string> = {
+    '01': 'Ene', '02': 'Feb', '03': 'Mar', '04': 'Abr',
+    '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Ago',
+    '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dic',
+  };
+
+  const byMonth: Record<string, { total: number; count: number; byCategory: Record<string, number> }> = {};
+
+  for (const tx of sales) {
+    if (!tx.fecha) continue;
+    const date = parseDate(tx.fecha);
+    if (date.getTime() === 0) continue;
+
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+    if (!byMonth[monthKey]) {
+      byMonth[monthKey] = { total: 0, count: 0, byCategory: {} };
+    }
+
+    const val = Math.abs(tx[valueKey]);
+    byMonth[monthKey].total += val;
+    byMonth[monthKey].count += 1;
+
+    const cat = tx.categoria || tx.clasificacion || 'Sin categoría';
+    byMonth[monthKey].byCategory[cat] = (byMonth[monthKey].byCategory[cat] || 0) + val;
+  }
+
+  return Object.entries(byMonth)
+    .map(([month, data]) => {
+      const parts = month.split('-');
+      const monthLabel = `${MESES_ES[parts[1]] || parts[1]} ${parts[0]?.slice(2) || ''}`;
+      return {
+        month,
+        monthLabel,
+        totalSales: Math.round(data.total * 100) / 100,
+        transactionCount: data.count,
+        avgTicket: data.count > 0 ? Math.round((data.total / data.count) * 100) / 100 : 0,
+        salesByCategory: data.byCategory,
+      };
+    })
+    .sort((a, b) => a.month.localeCompare(b.month));
+}
+
+/**
+ * Agrupa ventas por categoría con totales, conteo y porcentaje
+ */
+export function getSalesByCategory(
+  transactions: Transaction[],
+  currency: 'COP' | 'USD' = 'COP'
+): Array<{ categoria: string; total: number; count: number; percentage: number }> {
+  const sales = getSalesTransactions(transactions);
+  const valueKey = currency === 'COP' ? 'valorCOP' : 'valorUSD';
+
+  const byCategory: Record<string, { total: number; count: number }> = {};
+  let grandTotal = 0;
+
+  for (const tx of sales) {
+    const cat = tx.categoria || tx.clasificacion || 'Sin categoría';
+    const val = Math.abs(tx[valueKey]);
+
+    if (!byCategory[cat]) {
+      byCategory[cat] = { total: 0, count: 0 };
+    }
+    byCategory[cat].total += val;
+    byCategory[cat].count += 1;
+    grandTotal += val;
+  }
+
+  return Object.entries(byCategory)
+    .map(([categoria, data]) => ({
+      categoria,
+      total: Math.round(data.total * 100) / 100,
+      count: data.count,
+      percentage: grandTotal > 0 ? Math.round((data.total / grandTotal) * 10000) / 100 : 0,
+    }))
+    .sort((a, b) => b.total - a.total);
+}
