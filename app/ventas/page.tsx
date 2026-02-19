@@ -28,7 +28,7 @@ import {
 } from "recharts";
 
 // ──────────────────────────────────────
-// Types
+// Types 2
 // ──────────────────────────────────────
 interface SalesSummary {
     totalSales: number;
