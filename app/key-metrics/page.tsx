@@ -826,7 +826,7 @@ export default function KeyMetricsPage() {
                                             <Pie data={opexData} cx="50%" cy="50%" innerRadius={70} outerRadius={110} paddingAngle={6} dataKey="value" nameKey="tipo">
                                                 {opexData.map((_, index) => (<Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />))}
                                             </Pie>
-                                            <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px', color: 'white', fontSize: '12px' }} />
+                                            <Tooltip formatter={(value: number | undefined) => formatCurrency(value ?? 0)} contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px', color: 'white', fontSize: '12px' }} />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 ) : (<div className="h-full flex items-center justify-center text-gray-400">No hay datos</div>)}
