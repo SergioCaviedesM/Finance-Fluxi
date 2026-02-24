@@ -13,7 +13,8 @@ import {
     Menu,
     X,
     Users,
-    ShoppingCart
+    ShoppingCart,
+    BarChart3
 } from "lucide-react";
 
 const navigation = [
@@ -27,6 +28,7 @@ const analytics = [
     { name: "Análisis de Gastos", href: "/gastos", icon: PieChart },
     { name: "Suscriptores", href: "/suscriptores", icon: Users },
     { name: "Ventas", href: "/ventas", icon: ShoppingCart },
+    { name: "Key Metrics", href: "/key-metrics", icon: BarChart3 },
 ];
 
 export default function Sidebar() {
