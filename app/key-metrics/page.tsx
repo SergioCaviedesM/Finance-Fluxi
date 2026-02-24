@@ -699,7 +699,7 @@ export default function KeyMetricsPage() {
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={COLORS.gridLine} />
                                     <XAxis dataKey="month" type="category" allowDuplicatedCategory={false} axisLine={false} tickLine={false} tick={{ fill: COLORS.grayLight, fontSize: 12 }} dy={10} />
                                     <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.grayLight, fontSize: 12 }} domain={[0, 100]} tickFormatter={(v) => `${v}%`} dx={-10} />
-                                    <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px', color: 'white', fontSize: '12px' }} formatter={(val: number) => [`${val.toFixed(1)}%`, 'Retención']} />
+                                    <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px', color: 'white', fontSize: '12px' }} formatter={(val: number | undefined) => [`${(val ?? 0).toFixed(1)}%`, 'Retención']} />
                                     <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '12px' }} />
                                     {cohortCurves.map((curve) => (
                                         <Line key={curve.key} data={curve.data} name={curve.name} dataKey="pct" stroke={curve.color} strokeWidth={2} dot={{ r: 3, fill: curve.color, strokeWidth: 0 }} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} connectNulls />
