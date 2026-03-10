@@ -24,6 +24,21 @@ function getAuthClient(): JWT {
   });
 }
 
+export async function getRawSheetData(sheetName: string): Promise<string[][]> {
+  const auth = getAuthClient();
+  const sheets = google.sheets({ version: 'v4', auth });
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${sheetName}!A:Z`,
+  });
+
+  const rows = response.data.values;
+  if (!rows || rows.length === 0) return [];
+
+  return rows as string[][];
+}
+
 export async function getSheetData(sheetName: string): Promise<Transaction[]> {
   const auth = getAuthClient();
   const sheets = google.sheets({ version: 'v4', auth });

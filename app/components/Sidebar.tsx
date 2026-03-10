@@ -14,7 +14,8 @@ import {
     X,
     Users,
     ShoppingCart,
-    BarChart3
+    BarChart3,
+    Megaphone
 } from "lucide-react";
 
 const navigation = [
@@ -29,6 +30,7 @@ const analytics = [
     { name: "Suscriptores", href: "/suscriptores", icon: Users },
     { name: "Ventas", href: "/ventas", icon: ShoppingCart },
     { name: "Key Metrics", href: "/key-metrics", icon: BarChart3 },
+    { name: "Promotores", href: "/promoter", icon: Megaphone },
 ];
 
 export default function Sidebar() {
