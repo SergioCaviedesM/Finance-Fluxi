@@ -40,7 +40,7 @@ function parseRows(rows: string[][], headers: string[]) {
                 return;
             }
             // Currency fields (start with $ or contain currency-like patterns)
-            if (val.startsWith("$") || /^\$?\d[\d.,]*$/.test(val.trim())) {
+            if (val.startsWith("$") || val.startsWith("-$") || /^-?\$?\d[\d.,]*$/.test(val.trim())) {
                 obj[h] = parseCurrencyValue(val);
                 return;
             }

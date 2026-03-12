@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+    ComposedChart, ReferenceLine,
 } from "recharts";
 
 // ============================================================
@@ -41,6 +42,9 @@ const MEDAL_COLORS = ["#FFD700", "#C0C0C0", "#CD7F32"];
 const ESTADO_COLORS: Record<string, { bg: string; text: string }> = { active: { bg: "bg-emerald-50", text: "text-emerald-700" }, accepted: { bg: "bg-emerald-50", text: "text-emerald-700" }, subscribed: { bg: "bg-emerald-50", text: "text-emerald-700" }, signup: { bg: "bg-blue-50", text: "text-blue-700" }, cancelled: { bg: "bg-red-50", text: "text-red-700" }, refunded: { bg: "bg-orange-50", text: "text-orange-700" }, denied: { bg: "bg-gray-100", text: "text-gray-600" }, pending: { bg: "bg-yellow-50", text: "text-yellow-700" }, approved: { bg: "bg-emerald-50", text: "text-emerald-700" } };
 const COLORS = { primary: '#6366F1', success: '#10B981', grayLight: '#9CA3AF', gridLine: '#F3F4F6' };
 const MONTHS_ES: Record<string, string> = { '01': 'Ene', '02': 'Feb', '03': 'Mar', '04': 'Abr', '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Ago', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dic' };
+const PERIOD_TO_MONTH: Record<string, string> = { 'jan': '01', 'ene': '01', 'feb': '02', 'mar': '03', 'abr': '04', 'apr': '04', 'may': '05', 'jun': '06', 'jul': '07', 'ago': '08', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dic': '12', 'dec': '12' };
+const parsePeriod = (p: string): string => { const parts = p.trim().toLowerCase().split(/\s+/); if (parts.length === 2) { const m = PERIOD_TO_MONTH[parts[0]] || '01'; return `${parts[1]}-${m}`; } return p; };
+const PROMOTER_COLORS = ['#6366F1', '#0EA5E9', '#F59E0B', '#10B981', '#EC4899', '#F43F5E', '#8B5CF6', '#06B6D4'];
 
 export default function PromotoresPage() {
     const [promoters, setPromoters] = useState<Promoter[]>([]);
@@ -165,6 +169,37 @@ export default function PromotoresPage() {
         return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([period, d]) => ({ period, ...d }));
     }, [monthlyReport, filterPromoter, excludedPromoters]);
 
+    // ROI & Conversión per-promoter line chart data
+    const promoterLineCharts = useMemo(() => {
+        const validReport = monthlyReport.filter(r => !excludedPromoters.has(r["Promotor ID"]));
+        const activeIds = [...new Set(validReport.filter(r => r.Revenue > 0).map(r => r["Promotor ID"]))];
+        const names: Record<number, string> = {};
+        validReport.forEach(r => { names[r["Promotor ID"]] = r["Promotor Nombre"]; });
+        const periods = [...new Set(validReport.map(r => r["Período"]))].sort((a, b) => parsePeriod(a).localeCompare(parsePeriod(b)));
+
+        // ROI = Revenue / Comisiones (multiplier)
+        const roiData = periods.map(period => {
+            const point: Record<string, any> = { period, label: formatMonth(parsePeriod(period)) };
+            activeIds.forEach(pid => {
+                const row = validReport.find(r => r["Período"] === period && r["Promotor ID"] === pid);
+                if (row && row.Comisiones > 0) point[`p${pid}`] = parseFloat((row.Revenue / row.Comisiones).toFixed(1));
+            });
+            return point;
+        });
+
+        // Conversión Click→Cliente %
+        const convData = periods.map(period => {
+            const point: Record<string, any> = { period, label: formatMonth(parsePeriod(period)) };
+            activeIds.forEach(pid => {
+                const row = validReport.find(r => r["Período"] === period && r["Promotor ID"] === pid);
+                if (row && row.Clicks > 0 && row.Clientes >= 0) point[`p${pid}`] = parseFloat(((row.Clientes / row.Clicks) * 100).toFixed(2));
+            });
+            return point;
+        });
+
+        return { roiData, convData, ids: activeIds, names };
+    }, [monthlyReport, excludedPromoters]);
+
     const selectedPromoterName = filterPromoter ? promoters.find(p => String(p.ID) === filterPromoter)?.Nombre || "Promotor" : "Todos los promotores";
 
     function openCohortDetailFromCohort(cohort: { cohort: string; referrals: Referral[] }) { setModalTitle(`Referrals — Cohorte ${formatMonthFull(cohort.cohort)}`); setModalReferrals(cohort.referrals); setModalOpen(true); }
@@ -250,12 +285,110 @@ export default function PromotoresPage() {
                     </div>
                 </div>
 
-                {/* Trend Chart */}
-                {trendData.length > 0 && (
-                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">Tendencia Mensual — {selectedPromoterName}</h2>
-                        <div className="flex items-end gap-2 h-64">{trendData.map(d => { const rH = (d.revenue / maxTrendRevenue) * 100; const cH = (d.clicks / maxTrendClicks) * 100; return (<div key={d.period} className="flex-1 flex flex-col items-center group"><div className="w-full flex items-end justify-center gap-1 h-52"><div className="w-5 rounded-t transition-all hover:opacity-80" style={{ height: `${Math.max(rH, d.revenue > 0 ? 2 : 0)}%`, backgroundColor: "#6366F1" }} title={`Revenue: ${formatUSD(d.revenue)}`} /><div className="w-5 rounded-t transition-all hover:opacity-80" style={{ height: `${Math.max(cH, d.clicks > 0 ? 2 : 0)}%`, backgroundColor: "#0EA5E9" }} title={`Clicks: ${d.clicks}`} /></div><div className="opacity-0 group-hover:opacity-100 transition-opacity text-xs font-medium text-gray-600 mt-1 whitespace-nowrap">{formatUSD(d.revenue, true)}</div><span className="text-xs text-gray-500 mt-1">{d.period}</span></div>); })}</div>
-                        <div className="flex items-center justify-center gap-6 mt-4"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded" style={{ backgroundColor: "#6366F1" }} /><span className="text-sm text-gray-600">Revenue</span></div><div className="flex items-center gap-2"><div className="w-3 h-3 rounded" style={{ backgroundColor: "#0EA5E9" }} /><span className="text-sm text-gray-600">Clicks</span></div></div>
+                {/* ROI & Conversión por Promotor */}
+                {promoterLineCharts.roiData.length > 0 && (
+                    <div className="grid grid-cols-2 gap-6">
+                        {/* ROI por Promotor */}
+                        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-base font-semibold text-gray-900">ROI por Promotor</h2>
+                                    <div className="group relative">
+                                        <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                            Revenue ÷ Comisiones — cuánto genera cada $1 pagado en comisión
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="h-64">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <ComposedChart data={promoterLineCharts.roiData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                                        <defs>
+                                            <linearGradient id="roiGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#6366F1" stopOpacity={0.08} />
+                                                <stop offset="100%" stopColor="#6366F1" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={COLORS.gridLine} />
+                                        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: COLORS.grayLight, fontSize: 12 }} dy={10} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.grayLight, fontSize: 12 }} dx={-10} tickFormatter={v => `${v}x`} />
+                                        <Tooltip content={({ active, payload, label }: any) => {
+                                            if (!active || !payload?.length) return null;
+                                            return (<div className="bg-gray-900 text-white px-4 py-3 rounded-lg shadow-xl border border-gray-700">
+                                                <p className="text-gray-400 text-xs mb-2">{label}</p>
+                                                <div className="space-y-1">{payload.filter((p: any) => p.value != null).map((p: any) => (
+                                                    <div key={p.dataKey} className="flex items-center justify-between gap-4">
+                                                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.stroke }} /><span className="text-xs text-gray-300">{promoterLineCharts.names[Number(p.dataKey.replace('p', ''))]}</span></div>
+                                                        <span className="text-sm font-semibold">{p.value}x</span>
+                                                    </div>
+                                                ))}</div>
+                                            </div>);
+                                        }} />
+                                        <ReferenceLine y={1} stroke={COLORS.grayLight} strokeDasharray="6 4" strokeWidth={1} label={{ value: 'Punto de equilibrio', position: 'right', fill: COLORS.grayLight, fontSize: 10 }} />
+                                        {promoterLineCharts.ids.map((pid, idx) => (
+                                            <Line key={pid} dataKey={`p${pid}`} stroke={PROMOTER_COLORS[idx % PROMOTER_COLORS.length]} strokeWidth={2.5} dot={{ r: 5, fill: PROMOTER_COLORS[idx % PROMOTER_COLORS.length], strokeWidth: 0 }} activeDot={{ r: 7, stroke: '#fff', strokeWidth: 2 }} connectNulls />
+                                        ))}
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div className="flex flex-wrap justify-center gap-x-5 gap-y-1 mt-4">
+                                {promoterLineCharts.ids.map((pid, idx) => (
+                                    <div key={pid} className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PROMOTER_COLORS[idx % PROMOTER_COLORS.length] }} /><span className="text-[11px] text-gray-500">{promoterLineCharts.names[pid]}</span></div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Conversión Click→Cliente */}
+                        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-base font-semibold text-gray-900">Churn Rate Mensual x Promotor</h2>
+                                    <div className="group relative">
+                                        <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                            Clientes nuevos ÷ Clicks — calidad del tráfico de cada promotor
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="h-64">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <ComposedChart data={promoterLineCharts.convData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                                        <defs>
+                                            <linearGradient id="convGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#10B981" stopOpacity={0.08} />
+                                                <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={COLORS.gridLine} />
+                                        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: COLORS.grayLight, fontSize: 12 }} dy={10} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: COLORS.grayLight, fontSize: 12 }} dx={-10} tickFormatter={v => `${v}%`} />
+                                        <Tooltip content={({ active, payload, label }: any) => {
+                                            if (!active || !payload?.length) return null;
+                                            return (<div className="bg-gray-900 text-white px-4 py-3 rounded-lg shadow-xl border border-gray-700">
+                                                <p className="text-gray-400 text-xs mb-2">{label}</p>
+                                                <div className="space-y-1">{payload.filter((p: any) => p.value != null).map((p: any) => (
+                                                    <div key={p.dataKey} className="flex items-center justify-between gap-4">
+                                                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.stroke }} /><span className="text-xs text-gray-300">{promoterLineCharts.names[Number(p.dataKey.replace('p', ''))]}</span></div>
+                                                        <span className="text-sm font-semibold">{p.value}%</span>
+                                                    </div>
+                                                ))}</div>
+                                            </div>);
+                                        }} />
+                                        <ReferenceLine y={5} stroke={COLORS.success} strokeDasharray="6 4" strokeWidth={1.5} label={{ value: 'Meta: 5%', position: 'right', fill: COLORS.success, fontSize: 11 }} />
+                                        {promoterLineCharts.ids.map((pid, idx) => (
+                                            <Line key={pid} dataKey={`p${pid}`} stroke={PROMOTER_COLORS[idx % PROMOTER_COLORS.length]} strokeWidth={2.5} dot={{ r: 5, fill: PROMOTER_COLORS[idx % PROMOTER_COLORS.length], strokeWidth: 0 }} activeDot={{ r: 7, stroke: '#fff', strokeWidth: 2 }} connectNulls />
+                                        ))}
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div className="flex flex-wrap justify-center gap-x-5 gap-y-1 mt-4">
+                                {promoterLineCharts.ids.map((pid, idx) => (
+                                    <div key={pid} className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PROMOTER_COLORS[idx % PROMOTER_COLORS.length] }} /><span className="text-[11px] text-gray-500">{promoterLineCharts.names[pid]}</span></div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 )}
 
