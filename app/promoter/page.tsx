@@ -343,7 +343,7 @@ export default function PromotoresPage() {
                         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex items-center gap-2">
-                                    <h2 className="text-base font-semibold text-gray-900">Churn Rate Mensual x Promotor</h2>
+                                    <h2 className="text-base font-semibold text-gray-900">Conversión Click → Cliente</h2>
                                     <div className="group relative">
                                         <Info className="w-4 h-4 text-gray-400 cursor-help" />
                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
